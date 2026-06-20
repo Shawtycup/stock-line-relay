@@ -13,7 +13,7 @@ const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 
 // รายชื่อ Owner ที่จะส่งสรุปให้ (User ID จาก LINE)
 const OWNERS = [
-  { name: 'ลุ้น', userId: 'U98fd362e047d7f969e0f0803639677fa' },
+  { name: 'ลุ้น', userId: 'U973b1ff69bcaf1198dcab181dc683580' },
   // มิ้นท์ยังไม่ได้แอด OA เป็นเพื่อน — ปลดคอมเมนต์บรรทัดล่างนี้ตอนแอดแล้ว
   // { name: 'มิ้นท์', userId: 'Ud55af466c22db78f1b14fc1c19265553' },
 ];
@@ -28,6 +28,21 @@ app.get('/', (req, res) => {
 // healthcheck
 app.get('/health', (req, res) => {
   res.json({ ok: true, tokenConfigured: Boolean(CHANNEL_ACCESS_TOKEN) });
+});
+
+// Webhook สำหรับตรวจสอบ User ID ที่ถูกต้อง — ตั้ง URL นี้ใน LINE Developers Console
+// (Messaging API > Webhook settings > Webhook URL = https://your-app.onrender.com/webhook)
+// พิมพ์อะไรในแชท OA แล้วมาดู Render Logs จะเห็น userId ที่ถูกต้อง 100%
+app.post('/webhook', (req, res) => {
+  try {
+    const events = req.body.events || [];
+    events.forEach((event) => {
+      console.log('[webhook] >>> userId:', event.source && event.source.userId, '| type:', event.type, '| text:', event.message && event.message.text);
+    });
+  } catch (err) {
+    console.log('[webhook] parse error:', String(err));
+  }
+  res.status(200).send('OK');
 });
 
 app.post('/send-summary', async (req, res) => {
