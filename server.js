@@ -30,8 +30,10 @@ app.get('/health', (req, res) => {
 });
 
 app.post('/send-summary', async (req, res) => {
+  console.log('[send-summary] Request received at', new Date().toISOString());
   try {
     if (!CHANNEL_ACCESS_TOKEN) {
+      console.log('[send-summary] ERROR: No token configured');
       return res.status(500).json({
         ok: false,
         error: 'ยังไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN บนเซิร์ฟเวอร์ (ตั้งใน Environment Variables ของ Render)',
@@ -40,8 +42,11 @@ app.post('/send-summary', async (req, res) => {
 
     const { message } = req.body;
     if (!message || typeof message !== 'string' || !message.trim()) {
+      console.log('[send-summary] ERROR: No message in body');
       return res.status(400).json({ ok: false, error: 'ไม่พบข้อความสรุปที่จะส่ง (message)' });
     }
+
+    console.log('[send-summary] Sending to', OWNERS.length, 'owners. Message length:', message.length);
 
     // ส่งให้ owner ทุกคนพร้อมกัน
     const results = await Promise.all(
@@ -61,19 +66,23 @@ app.post('/send-summary', async (req, res) => {
 
           if (!resp.ok) {
             const errText = await resp.text();
+            console.log('[send-summary] FAILED for', owner.name, '- status:', resp.status, '- body:', errText);
             return { owner: owner.name, ok: false, status: resp.status, error: errText };
           }
+          console.log('[send-summary] SUCCESS for', owner.name);
           return { owner: owner.name, ok: true };
         } catch (err) {
+          console.log('[send-summary] EXCEPTION for', owner.name, '-', String(err));
           return { owner: owner.name, ok: false, error: String(err) };
         }
       })
     );
 
     const allOk = results.every((r) => r.ok);
+    console.log('[send-summary] Done. allOk:', allOk);
     res.status(allOk ? 200 : 207).json({ ok: allOk, results });
   } catch (err) {
-    console.error('send-summary error:', err);
+    console.error('[send-summary] UNCAUGHT ERROR:', err);
     res.status(500).json({ ok: false, error: String(err) });
   }
 });
