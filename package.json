@@ -1,0 +1,16 @@
+{
+  "name": "line-stock-summary-relay",
+  "version": "1.0.0",
+  "description": "ตัวกลางส่งสรุปสต๊อกวัตถุดิบเข้า LINE ให้ owner ผ่าน LINE Messaging API",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
