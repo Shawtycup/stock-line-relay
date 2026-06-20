@@ -14,7 +14,8 @@ const CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 // รายชื่อ Owner ที่จะส่งสรุปให้ (User ID จาก LINE)
 const OWNERS = [
   { name: 'ลุ้น', userId: 'U98fd362e047d7f969e0f0803639677fa' },
-  { name: 'มิ้นท์', userId: 'Ud55af466c22db78f1b14fc1c19265553' },
+  // มิ้นท์ยังไม่ได้แอด OA เป็นเพื่อน — ปลดคอมเมนต์บรรทัดล่างนี้ตอนแอดแล้ว
+  // { name: 'มิ้นท์', userId: 'Ud55af466c22db78f1b14fc1c19265553' },
 ];
 
 // อนุญาตให้เรียกได้จากโดเมนเว็บแอปของคุณเท่านั้น (ใส่โดเมนจริงตอน deploy ถ้าต้องการเข้มงวดขึ้น)
