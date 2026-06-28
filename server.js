@@ -30,6 +30,185 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, tokenConfigured: Boolean(CHANNEL_ACCESS_TOKEN) });
 });
 
+// ---- สร้าง Flex Message ในธีมครีม/น้ำตาล/ส้มของเว็บแอป ----
+const THEME = {
+  cream: '#FAF3E7',
+  card: '#FFFDF9',
+  brown: '#6B4226',
+  brownDeep: '#4A2D19',
+  terracotta: '#C76B3F',
+  olive: '#7A8450',
+  oliveDeep: '#5C6440',
+  line: '#E8DCC8',
+};
+
+function buildItemRow(item) {
+  // แถบ % สต๊อกเหลือ ใช้สีตามสถานะ
+  const pct = Math.max(0, Math.min(100, item.pct));
+  const barColor = pct < 50 ? THEME.terracotta : THEME.olive;
+  return {
+    type: 'box',
+    layout: 'vertical',
+    spacing: 'xs',
+    margin: 'md',
+    contents: [
+      {
+        type: 'box',
+        layout: 'horizontal',
+        contents: [
+          { type: 'text', text: item.emoji, flex: 0, size: 'lg' },
+          {
+            type: 'text',
+            text: item.name,
+            flex: 1,
+            weight: 'bold',
+            size: 'sm',
+            color: THEME.brownDeep,
+            wrap: true,
+            margin: 'sm',
+          },
+          {
+            type: 'text',
+            text: item.need + ' ' + item.unit,
+            flex: 0,
+            size: 'sm',
+            weight: 'bold',
+            color: THEME.terracotta,
+            align: 'end',
+          },
+        ],
+      },
+      {
+        // แถบ % สต๊อกเหลือ จำลองด้วย box ซ้อนกัน (พื้นหลังเทาอ่อน + แถบสีทับตามเปอร์เซ็นต์)
+        type: 'box',
+        layout: 'vertical',
+        height: '6px',
+        backgroundColor: THEME.line,
+        cornerRadius: '3px',
+        margin: 'sm',
+        contents: [
+          {
+            type: 'box',
+            layout: 'vertical',
+            height: '6px',
+            width: pct + '%',
+            backgroundColor: barColor,
+            cornerRadius: '3px',
+            contents: [],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function buildFlexMessage(summary) {
+  const { workerName, checkedAt, items, total, allGood } = summary;
+
+  const bodyContents = [];
+
+  // หัวข้อย่อยใน body
+  bodyContents.push({
+    type: 'text',
+    text: allGood ? 'สต๊อกพอใช้ทั้งหมด' : 'ต้องซื้อเพิ่ม ' + items.length + ' รายการ',
+    weight: 'bold',
+    size: 'md',
+    color: allGood ? THEME.oliveDeep : THEME.brownDeep,
+  });
+
+  if (!allGood) {
+    items.forEach((item) => {
+      bodyContents.push(buildItemRow(item));
+    });
+  } else {
+    bodyContents.push({
+      type: 'text',
+      text: 'ไม่ต้องสั่งซื้อเพิ่มในรอบนี้',
+      size: 'sm',
+      color: THEME.brown,
+      margin: 'md',
+      wrap: true,
+    });
+  }
+
+  const bubble = {
+    type: 'bubble',
+    size: 'mega',
+    header: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: THEME.brownDeep,
+      paddingAll: '20px',
+      contents: [
+        {
+          type: 'box',
+          layout: 'horizontal',
+          contents: [
+            { type: 'text', text: '📦', flex: 0, size: 'xl' },
+            {
+              type: 'text',
+              text: 'อัปเดตวัตถุดิบเรียบร้อยแล้ว!!',
+              flex: 1,
+              weight: 'bold',
+              size: 'md',
+              color: THEME.cream,
+              wrap: true,
+              margin: 'sm',
+            },
+          ],
+        },
+        workerName
+          ? {
+              type: 'text',
+              text: 'เช็กโดย: ' + workerName,
+              size: 'xs',
+              color: THEME.cream,
+              margin: 'md',
+            }
+          : { type: 'filler' },
+      ],
+    },
+    body: {
+      type: 'box',
+      layout: 'vertical',
+      paddingAll: '20px',
+      backgroundColor: THEME.cream,
+      contents: bodyContents,
+    },
+    footer: {
+      type: 'box',
+      layout: 'vertical',
+      backgroundColor: THEME.card,
+      paddingAll: '20px',
+      borderColor: THEME.line,
+      borderWidth: '1px',
+      contents: [
+        { type: 'separator', margin: 'none', color: THEME.line },
+        {
+          type: 'box',
+          layout: 'horizontal',
+          margin: 'md',
+          contents: [
+            { type: 'text', text: 'ยอดรวมที่ต้องซื้อ', size: 'sm', color: THEME.brown, flex: 1, gravity: 'center' },
+            {
+              type: 'text',
+              text: allGood ? '0.00 ฿' : total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ฿',
+              size: 'lg',
+              weight: 'bold',
+              color: THEME.terracotta,
+              align: 'end',
+              flex: 1,
+            },
+          ],
+        },
+        { type: 'text', text: checkedAt, size: 'xxs', color: THEME.brown, margin: 'md', align: 'end' },
+      ],
+    },
+  };
+
+  return bubble;
+}
+
 // Webhook สำหรับตรวจสอบ User ID ที่ถูกต้อง — ตั้ง URL นี้ใน LINE Developers Console
 // (Messaging API > Webhook settings > Webhook URL = https://your-app.onrender.com/webhook)
 // พิมพ์อะไรในแชท OA แล้วมาดู Render Logs จะเห็น userId ที่ถูกต้อง 100%
@@ -56,13 +235,28 @@ app.post('/send-summary', async (req, res) => {
       });
     }
 
-    const { message } = req.body;
-    if (!message || typeof message !== 'string' || !message.trim()) {
-      console.log('[send-summary] ERROR: No message in body');
-      return res.status(400).json({ ok: false, error: 'ไม่พบข้อความสรุปที่จะส่ง (message)' });
+    const { summary, message } = req.body;
+
+    let lineMessage;
+    if (summary && typeof summary === 'object') {
+      // โหมดใหม่: สร้าง Flex Message จาก structured data
+      try {
+        const flexContents = buildFlexMessage(summary);
+        const altText = message || 'สรุปสต๊อกวัตถุดิบ';
+        lineMessage = { type: 'flex', altText: altText.slice(0, 400), contents: flexContents };
+      } catch (err) {
+        console.log('[send-summary] Flex build error, falling back to text:', String(err));
+        lineMessage = { type: 'text', text: message || 'สรุปสต๊อกวัตถุดิบ' };
+      }
+    } else if (message && typeof message === 'string' && message.trim()) {
+      // โหมดเดิม: plain text (เผื่อความเข้ากันได้กับเวอร์ชันเก่า)
+      lineMessage = { type: 'text', text: message };
+    } else {
+      console.log('[send-summary] ERROR: No summary or message in body');
+      return res.status(400).json({ ok: false, error: 'ไม่พบข้อมูลสรุปที่จะส่ง (summary หรือ message)' });
     }
 
-    console.log('[send-summary] Sending to', OWNERS.length, 'owners. Message length:', message.length);
+    console.log('[send-summary] Sending to', OWNERS.length, 'owners. Type:', lineMessage.type);
 
     // ส่งให้ owner ทุกคนพร้อมกัน
     const results = await Promise.all(
@@ -76,7 +270,7 @@ app.post('/send-summary', async (req, res) => {
             },
             body: JSON.stringify({
               to: owner.userId,
-              messages: [{ type: 'text', text: message }],
+              messages: [lineMessage],
             }),
           });
 
