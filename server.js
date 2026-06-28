@@ -43,9 +43,13 @@ const THEME = {
 };
 
 function buildItemRow(item) {
-  // แถบ % สต๊อกเหลือ ใช้สีตามสถานะ
+  // แถบสีสถานะใต้แต่ละรายการ ใช้สีตามเปอร์เซ็นต์สต๊อกเหลือ
   const pct = Math.max(0, Math.min(100, item.pct));
-  const barColor = pct < 50 ? THEME.terracotta : THEME.olive;
+  let barColor;
+  if (pct < 30) barColor = THEME.terracotta; // แดง/ส้มเข้ม ใกล้หมดมาก
+  else if (pct < 60) barColor = '#D89A4A'; // ส้มอ่อน ใกล้หมด
+  else barColor = THEME.olive; // เขียว พอใช้
+
   return {
     type: 'box',
     layout: 'vertical',
@@ -53,39 +57,20 @@ function buildItemRow(item) {
     margin: 'md',
     contents: [
       {
-        type: 'box',
-        layout: 'horizontal',
-        contents: [
-          { type: 'text', text: item.emoji, flex: 0, size: 'lg' },
-          {
-            type: 'text',
-            text: item.name,
-            flex: 1,
-            weight: 'bold',
-            size: 'sm',
-            color: THEME.brownDeep,
-            wrap: true,
-            margin: 'sm',
-          },
-          {
-            type: 'text',
-            text: item.need + ' ' + item.unit,
-            flex: 0,
-            size: 'sm',
-            weight: 'bold',
-            color: THEME.terracotta,
-            align: 'end',
-          },
-        ],
+        type: 'text',
+        text: item.name + ': เหลือ ' + item.need + ' ' + item.unit,
+        size: 'sm',
+        color: THEME.brownDeep,
+        wrap: true,
       },
       {
-        // แถบ % สต๊อกเหลือ จำลองด้วย box ซ้อนกัน (พื้นหลังเทาอ่อน + แถบสีทับตามเปอร์เซ็นต์)
+        // แถบจำนวน/สถานะ จำลองด้วย box ซ้อนกัน (พื้นหลังเทาอ่อน + แถบสีทับตามเปอร์เซ็นต์)
         type: 'box',
         layout: 'vertical',
         height: '6px',
         backgroundColor: THEME.line,
         cornerRadius: '3px',
-        margin: 'sm',
+        margin: 'xs',
         contents: [
           {
             type: 'box',
@@ -107,10 +92,10 @@ function buildFlexMessage(summary) {
 
   const bodyContents = [];
 
-  // หัวข้อย่อยใน body
+  // หัวข้อรายการ พร้อม emoji นำหน้า
   bodyContents.push({
     type: 'text',
-    text: allGood ? 'สต๊อกพอใช้ทั้งหมด' : 'ต้องซื้อเพิ่ม ' + items.length + ' รายการ',
+    text: (allGood ? '✅ สต๊อกพอใช้ทั้งหมด' : '🛒 วัตถุดิบใกล้หมด: ' + items.length + ' รายการ'),
     weight: 'bold',
     size: 'md',
     color: allGood ? THEME.oliveDeep : THEME.brownDeep,
@@ -131,47 +116,36 @@ function buildFlexMessage(summary) {
     });
   }
 
+  const headerContents = [
+    { type: 'text', text: '📋 สรุปสต๊อกวัตถุดิบ', weight: 'bold', size: 'lg', color: THEME.brownDeep },
+    { type: 'text', text: checkedAt, size: 'xs', color: THEME.brown, margin: 'xs' },
+  ];
+  if (workerName) {
+    headerContents.push({
+      type: 'text',
+      text: '👤 เช็กโดย: ' + workerName,
+      size: 'xs',
+      color: THEME.brown,
+      margin: 'xs',
+    });
+  }
+
   const bubble = {
     type: 'bubble',
     size: 'mega',
     header: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: THEME.brownDeep,
+      backgroundColor: THEME.cream,
       paddingAll: '20px',
-      contents: [
-        {
-          type: 'box',
-          layout: 'horizontal',
-          contents: [
-            { type: 'text', text: '📦', flex: 0, size: 'xl' },
-            {
-              type: 'text',
-              text: 'อัปเดตวัตถุดิบเรียบร้อยแล้ว!!',
-              flex: 1,
-              weight: 'bold',
-              size: 'md',
-              color: THEME.cream,
-              wrap: true,
-              margin: 'sm',
-            },
-          ],
-        },
-        workerName
-          ? {
-              type: 'text',
-              text: 'เช็กโดย: ' + workerName,
-              size: 'xs',
-              color: THEME.cream,
-              margin: 'md',
-            }
-          : { type: 'filler' },
-      ],
+      paddingBottom: '12px',
+      contents: headerContents,
     },
     body: {
       type: 'box',
       layout: 'vertical',
       paddingAll: '20px',
+      paddingTop: '8px',
       backgroundColor: THEME.cream,
       contents: bodyContents,
     },
@@ -180,8 +154,6 @@ function buildFlexMessage(summary) {
       layout: 'vertical',
       backgroundColor: THEME.card,
       paddingAll: '20px',
-      borderColor: THEME.line,
-      borderWidth: '1px',
       contents: [
         { type: 'separator', margin: 'none', color: THEME.line },
         {
@@ -189,7 +161,7 @@ function buildFlexMessage(summary) {
           layout: 'horizontal',
           margin: 'md',
           contents: [
-            { type: 'text', text: 'ยอดรวมที่ต้องซื้อ', size: 'sm', color: THEME.brown, flex: 1, gravity: 'center' },
+            { type: 'text', text: '💰 รวมทั้งหมด', size: 'sm', color: THEME.brown, flex: 1, gravity: 'center' },
             {
               type: 'text',
               text: allGood ? '0.00 ฿' : total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ฿',
@@ -201,7 +173,6 @@ function buildFlexMessage(summary) {
             },
           ],
         },
-        { type: 'text', text: checkedAt, size: 'xxs', color: THEME.brown, margin: 'md', align: 'end' },
       ],
     },
   };
