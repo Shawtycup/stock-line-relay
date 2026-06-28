@@ -30,25 +30,29 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, tokenConfigured: Boolean(CHANNEL_ACCESS_TOKEN) });
 });
 
-// ---- สร้าง Flex Message ในธีมครีม/น้ำตาล/ส้มของเว็บแอป ----
+// ---- ธีมเว็บแอป: ใช้แค่ 3 สีหลัก (ขาว/ครีม/น้ำตาล) สำหรับโครงสร้าง ----
+// สีเขียว/ส้มสงวนไว้เฉพาะแถบสถานะสต๊อกใต้แต่ละรายการเท่านั้น
 const THEME = {
+  white: '#FFFFFF',
   cream: '#FAF3E7',
   card: '#FFFDF9',
   brown: '#6B4226',
   brownDeep: '#4A2D19',
-  terracotta: '#C76B3F',
-  olive: '#7A8450',
-  oliveDeep: '#5C6440',
+  brownLight: '#A98B68', // น้ำตาลอ่อน ใช้ทำกรอบเส้นบาง
   line: '#E8DCC8',
+  // สีสถานะ (เฉพาะแถบใต้รายการวัตถุดิบ ไม่ใช้กับโครงสร้างหลัก)
+  statusLow: '#C76B3F',
+  statusMid: '#D89A4A',
+  statusOk: '#7A8450',
 };
 
 function buildItemRow(item) {
-  // แถบสีสถานะใต้แต่ละรายการ ใช้สีตามเปอร์เซ็นต์สต๊อกเหลือ
+  // แถบสีสถานะใต้แต่ละรายการ ใช้สีตามเปอร์เซ็นต์สต๊อกเหลือ (เขียว/ส้ม คงไว้ตามเดิม)
   const pct = Math.max(0, Math.min(100, item.pct));
   let barColor;
-  if (pct < 30) barColor = THEME.terracotta; // แดง/ส้มเข้ม ใกล้หมดมาก
-  else if (pct < 60) barColor = '#D89A4A'; // ส้มอ่อน ใกล้หมด
-  else barColor = THEME.olive; // เขียว พอใช้
+  if (pct < 30) barColor = THEME.statusLow; // ส้มเข้ม ใกล้หมดมาก
+  else if (pct < 60) barColor = THEME.statusMid; // ส้มอ่อน ใกล้หมด
+  else barColor = THEME.statusOk; // เขียว พอใช้
 
   return {
     type: 'box',
@@ -58,13 +62,12 @@ function buildItemRow(item) {
     contents: [
       {
         type: 'text',
-        text: item.name + ': เหลือ ' + item.need + ' ' + item.unit,
+        text: item.label + item.name + ': ' + item.actionText + ' ' + item.need + ' ' + item.unit,
         size: 'sm',
         color: THEME.brownDeep,
         wrap: true,
       },
       {
-        // แถบจำนวน/สถานะ จำลองด้วย box ซ้อนกัน (พื้นหลังเทาอ่อน + แถบสีทับตามเปอร์เซ็นต์)
         type: 'box',
         layout: 'vertical',
         height: '6px',
@@ -87,46 +90,70 @@ function buildItemRow(item) {
   };
 }
 
+// กล่องหมวดหมู่ — กรอบเส้นบางสีน้ำตาล (ไม่ใช้สีส้ม/เทอร์ราคอตต้าแล้ว ตามกฎ 3 สี)
+function buildSectionBox(titleText, rows) {
+  return {
+    type: 'box',
+    layout: 'vertical',
+    backgroundColor: THEME.white,
+    cornerRadius: '8px',
+    paddingAll: '16px',
+    borderWidth: 'light',
+    borderColor: THEME.brownLight,
+    margin: 'md',
+    contents: [
+      { type: 'text', text: titleText, weight: 'bold', size: 'md', color: THEME.brownDeep },
+      ...rows,
+    ],
+  };
+}
+
 function buildFlexMessage(summary) {
-  const { workerName, checkedAt, items, total, allGood } = summary;
+  const { workerName, checkedAt, lowStockItems = [], outOfStockItems = [], total, allGood } = summary;
 
   const bodyContents = [];
 
-  // หัวข้อรายการ พร้อม emoji นำหน้า
-  bodyContents.push({
-    type: 'text',
-    text: (allGood ? '✅ สต๊อกพอใช้ทั้งหมด' : '🛒 วัตถุดิบใกล้หมด: ' + items.length + ' รายการ'),
-    weight: 'bold',
-    size: 'md',
-    color: allGood ? THEME.oliveDeep : THEME.brownDeep,
-  });
-
-  if (!allGood) {
-    items.forEach((item) => {
-      bodyContents.push(buildItemRow(item));
-    });
-  } else {
+  if (allGood) {
     bodyContents.push({
       type: 'text',
-      text: 'ไม่ต้องสั่งซื้อเพิ่มในรอบนี้',
+      text: '✅ สต๊อกพอใช้ทั้งหมด ไม่ต้องสั่งซื้อเพิ่ม',
       size: 'sm',
-      color: THEME.brown,
-      margin: 'md',
+      color: THEME.brownDeep,
+      weight: 'bold',
       wrap: true,
     });
+  } else {
+    // หมวด "ใกล้หมด" — เตือนล่วงหน้า ไม่รวมยอดเงิน
+    if (lowStockItems.length > 0) {
+      const rows = lowStockItems.map((item) =>
+        buildItemRow({ ...item, label: '', actionText: 'เหลือ' })
+      );
+      bodyContents.push(
+        buildSectionBox('📋 วัตถุดิบใกล้หมด: ' + lowStockItems.length + ' รายการ', rows)
+      );
+    }
+
+    // หมวด "ซื้อเพิ่ม" — ของหมดแล้วจริง ใช้คำนวณยอดเงิน
+    if (outOfStockItems.length > 0) {
+      const rows = outOfStockItems.map((item) =>
+        buildItemRow({ ...item, label: '', actionText: 'เพิ่มอีก' })
+      );
+      bodyContents.push(
+        buildSectionBox('🛒 ซื้อวัตถุดิบเพิ่ม: ' + outOfStockItems.length + ' รายการ', rows)
+      );
+    }
   }
 
   const headerContents = [
-    { type: 'text', text: '📋 สรุปสต๊อกวัตถุดิบ', weight: 'bold', size: 'lg', color: THEME.brownDeep },
-    { type: 'text', text: checkedAt, size: 'xs', color: THEME.brown, margin: 'xs' },
+    { type: 'text', text: '📦 อัปเดตวัตถุดิบเรียบร้อยแล้ว!!', weight: 'bold', size: 'md', color: THEME.cream, wrap: true },
   ];
   if (workerName) {
     headerContents.push({
       type: 'text',
       text: '👤 เช็กโดย: ' + workerName,
       size: 'xs',
-      color: THEME.brown,
-      margin: 'xs',
+      color: THEME.cream,
+      margin: 'sm',
     });
   }
 
@@ -136,18 +163,20 @@ function buildFlexMessage(summary) {
     header: {
       type: 'box',
       layout: 'vertical',
-      backgroundColor: THEME.cream,
+      backgroundColor: THEME.brownDeep,
       paddingAll: '20px',
-      paddingBottom: '12px',
       contents: headerContents,
     },
     body: {
       type: 'box',
       layout: 'vertical',
       paddingAll: '20px',
-      paddingTop: '8px',
       backgroundColor: THEME.cream,
-      contents: bodyContents,
+      contents: [
+        { type: 'text', text: '📋 สรุปสต๊อกวัตถุดิบ', weight: 'bold', size: 'lg', color: THEME.brownDeep },
+        { type: 'text', text: checkedAt, size: 'xs', color: THEME.brown, margin: 'xs' },
+        ...bodyContents,
+      ],
     },
     footer: {
       type: 'box',
@@ -167,7 +196,7 @@ function buildFlexMessage(summary) {
               text: allGood ? '0.00 ฿' : total.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ฿',
               size: 'lg',
               weight: 'bold',
-              color: THEME.terracotta,
+              color: THEME.brownDeep,
               align: 'end',
               flex: 1,
             },
